@@ -1,27 +1,56 @@
+# VAR
+# author - Owen F. O'Connor - owen.oconnor.2024@mumail.ie
+
 library(shiny)
+library(shinythemes) # Adding themeing package, quick way to make app more appealing with minimal effort
 
-# Define UI for application that draws a histogram
-ui <- fluidPage(
+# Define UI for application
+ui <- fluidPage(theme = shinytheme("superhero"), # Implementation of shinythemes library called in line 5 - I like the superhero theme, found @ https://rstudio.github.io/shinythemes/
 
-    # Application title
-    titlePanel("Old Faithful Geyser Data"),
-
-    # Sidebar with a slider input for number of bins 
-    sidebarLayout(
-        sidebarPanel(
-            sliderInput("bins",
-                        "Number of bins:",
-                        min = 1,
-                        max = 50,
-                        value = 30)
-        ),
-
-        # Show a plot of the generated distribution
-        mainPanel(
-           plotOutput("distPlot")
-        )
-    )
-)
+                navbarPage( # Allows us to use navigation bar at the top of the page, and structure in tabs
+                  title = "VAR", # Text displayed in the top left corner
+                  
+                  tabPanel("About", # Some information about the app
+                           
+                           h2("About VAR"), 
+                           p("A Shiny app to help analyse data collected for my final year project on betting odds."),
+                           p("This app was developed as my application to the 2025/2026 Maynooth Data Science \"Shiny App Developement Competition\""),
+                           p("Intention is to have an easy-to-use webapp that will help visulatise the odds movements captured and identify any unusual patterns."),
+                           p("Users should be able to select subsets from the whole dataset and adjust using different filters/ modifiers."),
+                           hr(), # Horizontal rule
+                           
+                           h3("About the Developer"),
+                           p("My name is Owen F. O'Connor, I am a final year (MH207) data science student"),
+                           p("you can email me @ owen.oconnor.2024@mumail.ie"),
+                           tags$a(href="https://mulife.ie/society/data-science", "Data science society"),
+                           br(),
+                           tags$a(href="https://www.linkedin.com/in/owen-f-o-connor-7565001b3/", "LinkedIn")
+                           
+                  ), # tabPanel - About ends
+                  
+                  
+                  tabPanel("How to use", # A description of how the app should be used
+                           
+                           h2("How to Use the App"),
+                           p("1. tdb"),
+                           p("2. tdb"),
+                           p("3. tdb"),
+                           hr(),
+                           p("You can watch the video below as an example and guide."),
+                           div(style = "text-align: center;", 
+                               tags$iframe(width="560", height="315",
+                                           src="https://www.youtube.com/embed/OErMB4WYkjE?si=0hzi8FV5ioTW2dlI",
+                                           frameborder="0", allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture",
+                                           allowfullscreen=NA)) # Will replace with a current video when app is working. Happy to keep this here as a placeholder
+                           
+                  ), # tabPanel - How to use ends
+                  
+                  tabPanel("Grapher", # Some information about the app
+                           
+                  )  # tabPanel - Grapher ends
+                  
+                ) # navbarPage ends
+) # fluidPage ends
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
