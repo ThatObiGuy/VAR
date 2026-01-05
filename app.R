@@ -5,7 +5,7 @@ library(shiny)
 library(shinythemes) # Adding themeing package, quick way to make app more appealing with minimal effort
 
 # Define UI for application
-ui <- fluidPage(theme = shinytheme("superhero"), # Implementation of shinythemes library called in line 5 - I like the superhero theme, found @ https://rstudio.github.io/shinythemes/
+ui <- fluidPage(theme = shinytheme("united"), # Implementation of shinythemes library called in line 5 - I think the united theme suits the use case, found @ https://rstudio.github.io/shinythemes/
 
                 navbarPage( # Allows us to use navigation bar at the top of the page, and structure in tabs
                   title = "VAR", # Text displayed in the top left corner
