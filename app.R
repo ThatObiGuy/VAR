@@ -45,26 +45,35 @@ ui <- fluidPage(theme = shinytheme("united"), # Implementation of shinythemes li
                            
                   ), # tabPanel - How to use ends
                   
-                  tabPanel("Grapher", # Some information about the app
+                  tabPanel("Grapher", # The 'real' app itself
+                           sidebarLayout( # separates sidebarPanel and mainPanel
+                             sidebarPanel( # select interest
+                               width = 1,
+                               radioButtons(
+                                 inputId = "menu",
+                                 label = "Select View",
+                                 choices = c("Overview", "Matches", "Teams", "Leagues"),
+                                 selected = "Overview",
+                                 inline = FALSE
+                               )
+                             ),
+                             mainPanel( # display info on selected interest
+                               width = 10,
+                               conditionalPanel(condition = "input.menu == 'Overview'", h3("Overview screen")),
+                               conditionalPanel(condition = "input.menu == 'Matches'", h3("Matches screen")),
+                               conditionalPanel(condition = "input.menu == 'Teams'", h3("Teams screen")),
+                               conditionalPanel(condition = "input.menu == 'Leagues'", h3("Leagues screen"))
+                             )
+                           )  # Closes sidebarLayout
                            
                   )  # tabPanel - Grapher ends
                   
                 ) # navbarPage ends
 ) # fluidPage ends
 
-# Define server logic required to draw a histogram
+# Define server logic
 server <- function(input, output) {
 
-    output$distPlot <- renderPlot({
-        # generate bins based on input$bins from ui.R
-        x    <- faithful[, 2]
-        bins <- seq(min(x), max(x), length.out = input$bins + 1)
-
-        # draw the histogram with the specified number of bins
-        hist(x, breaks = bins, col = 'darkgray', border = 'white',
-             xlab = 'Waiting time to next eruption (in mins)',
-             main = 'Histogram of waiting times')
-    })
 }
 
 # Run the application 
