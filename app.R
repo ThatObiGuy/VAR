@@ -3,14 +3,15 @@
 
 library(shiny)
 library(shinythemes) # Adding themeing package, quick way to make app more appealing with minimal effort
-library(DBI)
-library(RPostgres)
-library(dbplyr)
-library(dplyr)
+library(DBI) # For DB interactions
+library(RPostgres) # For DB interactions
+library(dbplyr) # To allow us to use the language of dplyr rather than SQL on our tables
+library(dplyr) # any server side adjustments
+library(DT) # DataTable used to allow users to select matches
 
 # Define UI for application
 ui <- fluidPage(theme = shinytheme("united"), # Implementation of shinythemes library called in line 5 - I think the united theme suits the use case, found @ https://rstudio.github.io/shinythemes/
-
+                
                 navbarPage( # Allows us to use navigation bar at the top of the page, and structure in tabs
                   title = "VAR", # Text displayed in the top left corner
                   
@@ -56,7 +57,7 @@ ui <- fluidPage(theme = shinytheme("united"), # Implementation of shinythemes li
                                radioButtons(
                                  inputId = "menu",
                                  label = "Select View",
-                                 choices = c("Overview", "Matches", "Teams", "Leagues"),
+                                 choices = c("Overview", "Single Match", "Compare Matches", "Teams", "Leagues"),
                                  selected = "Overview",
                                  inline = FALSE
                                )
@@ -67,10 +68,20 @@ ui <- fluidPage(theme = shinytheme("united"), # Implementation of shinythemes li
                                                 h1("OVERVIEW"),
                                                 h2("Displaying data from odds markets on:"),
                                                 h3(textOutput("overview_text"))
-                                                ),
-                               conditionalPanel(condition = "input.menu == 'Matches'", h3("Matches screen")),
-                               conditionalPanel(condition = "input.menu == 'Teams'", h3("Teams screen")),
-                               conditionalPanel(condition = "input.menu == 'Leagues'", h3("Leagues screen"))
+                               ),
+                               conditionalPanel(condition = "input.menu == 'Single Match'",
+                                                h1("SINGLE MATCH"),
+                                                p("Click on a match to select it:"),
+                                                DT::DTOutput("matches_table"),
+                                                hr(),
+                                                plotOutput("single_odds_plot")
+                               ),
+                               conditionalPanel(condition = "input.menu == 'Compare Matches'",
+                                                h1("COMPARE MATCHES")),
+                               conditionalPanel(condition = "input.menu == 'Teams'",
+                                                h1("TEAMS")),
+                               conditionalPanel(condition = "input.menu == 'Leagues'",
+                                                h1("LEAGUES"))
                              )
                            )  # Closes sidebarLayout
                            
@@ -80,7 +91,7 @@ ui <- fluidPage(theme = shinytheme("united"), # Implementation of shinythemes li
 ) # fluidPage ends
 
 # Define server logic
-server <- function(input, output) {
+server <- function(input, output, session) {
   con <- dbConnect( # Secure DB connection once (use .Renviron for env vars)
     Postgres(),
     host = Sys.getenv("PGHOST"),
@@ -93,12 +104,15 @@ server <- function(input, output) {
   
   # Reactive expression for summary_stats (dbplyr translates to SQL)
   results <- tbl(con, "results1")
-  summary_stats <- results %>%
+  summary_stats <- results |>
     summarise(
       unique_events = n_distinct(event_id),
       unique_teams = n_distinct(home_team),
       unique_leagues = n_distinct(league_id)
-      )
+    )
+  
+  odds <- tbl(con, "odds1x2")
+  odds |> tally() |> pull() -> n_observations
   
   # Cast as regular df so we can perform operations
   summary_stats <- as.data.frame(summary_stats)
@@ -110,8 +124,38 @@ server <- function(input, output) {
   
   # Make these figures accessible to the frontend
   output$overview_text <- renderText({
-    paste(matches, "matches","from", teams, "different teams, across", leagues, "different leagues")
+    paste(n_observations, "observations from", matches, "matches between", teams, "different teams, across", leagues, "different leagues")
   })
+  
+  # Reactive expression to prepare matches data for DT
+  matches_data <- reactive({
+    results |>
+      select(event_id, home_team, away_team, league_name, starts) |>
+      collect() |>
+      mutate(Match_Date = format(as.Date(starts), "%Y-%m-%d")) |>
+      select(event_id, home_team, away_team, league_name, Match_Date)
+  })
+  
+  # Render the DT table with single row selection
+  output$matches_table <- DT::renderDT({
+    datatable(
+      matches_data(),
+      selection = 'single',  # Enable single row selection
+      options = list(
+        pageLength = 10,
+        lengthMenu = c(5, 10, 25, 50),
+        scrollX = TRUE
+      ),
+      rownames = FALSE,
+      colnames = c("Event ID", "Home Team", "Away Team", "League", "Match Date")
+    )
+  })
+  
+  # Placeholder for now, eventually proper odds over time plot
+  output$single_odds_plot <- renderPlot({
+    ggplot() + theme_minimal()
+  })
+  
 }
 
 # Run the application 

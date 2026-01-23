@@ -30,6 +30,11 @@ opening_odds <- odds %>%
 opening_odds  # Prints preview
 show_query(opening_odds)  # Shows SQL
 
+# Getting number of rows from odds table
+odds %>% 
+  tally() %>% 
+  pull()
+
 # Getting number of matches, leagues and teams from results1
 results <- tbl(con, "results1")
 
