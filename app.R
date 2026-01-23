@@ -3,6 +3,10 @@
 
 library(shiny)
 library(shinythemes) # Adding themeing package, quick way to make app more appealing with minimal effort
+library(DBI)
+library(RPostgres)
+library(dbplyr)
+library(dplyr)
 
 # Define UI for application
 ui <- fluidPage(theme = shinytheme("united"), # Implementation of shinythemes library called in line 5 - I think the united theme suits the use case, found @ https://rstudio.github.io/shinythemes/
@@ -48,7 +52,7 @@ ui <- fluidPage(theme = shinytheme("united"), # Implementation of shinythemes li
                   tabPanel("Grapher", # The 'real' app itself
                            sidebarLayout( # separates sidebarPanel and mainPanel
                              sidebarPanel( # select interest
-                               width = 1,
+                               width = 1, # doesn't look great, would love some better way to specify width
                                radioButtons(
                                  inputId = "menu",
                                  label = "Select View",
@@ -59,7 +63,11 @@ ui <- fluidPage(theme = shinytheme("united"), # Implementation of shinythemes li
                              ),
                              mainPanel( # display info on selected interest
                                width = 10,
-                               conditionalPanel(condition = "input.menu == 'Overview'", h3("Overview screen")),
+                               conditionalPanel(condition = "input.menu == 'Overview'",
+                                                h1("OVERVIEW"),
+                                                h2("Displaying data from odds markets on:"),
+                                                h3(textOutput("overview_text"))
+                                                ),
                                conditionalPanel(condition = "input.menu == 'Matches'", h3("Matches screen")),
                                conditionalPanel(condition = "input.menu == 'Teams'", h3("Teams screen")),
                                conditionalPanel(condition = "input.menu == 'Leagues'", h3("Leagues screen"))
@@ -73,7 +81,37 @@ ui <- fluidPage(theme = shinytheme("united"), # Implementation of shinythemes li
 
 # Define server logic
 server <- function(input, output) {
-
+  con <- dbConnect( # Secure DB connection once (use .Renviron for env vars)
+    Postgres(),
+    host = Sys.getenv("PGHOST"),
+    port = 5432,
+    dbname = Sys.getenv("PGDATABASE"),
+    user = Sys.getenv("PGUSER"),
+    password = Sys.getenv("PGPASSWORD")
+  )
+  onStop(function() dbDisconnect(con))  # Clean up on exit
+  
+  # Reactive expression for summary_stats (dbplyr translates to SQL)
+  results <- tbl(con, "results1")
+  summary_stats <- results %>%
+    summarise(
+      unique_events = n_distinct(event_id),
+      unique_teams = n_distinct(home_team),
+      unique_leagues = n_distinct(league_id)
+      )
+  
+  # Cast as regular df so we can perform operations
+  summary_stats <- as.data.frame(summary_stats)
+  
+  # extract values
+  matches <- summary_stats[1,1]
+  teams <- summary_stats[1,2]
+  leagues <- summary_stats[1,3]
+  
+  # Make these figures accessible to the frontend
+  output$overview_text <- renderText({
+    paste(matches, "matches","from", teams, "different teams, across", leagues, "different leagues")
+  })
 }
 
 # Run the application 

@@ -18,6 +18,8 @@ con <- dbConnect(
 )
 
 # Use connection to refer to a table, use it like it's loaded in r
+
+# Getting opening odds
 odds <- tbl(con, "odds1x2")
 
 opening_odds <- odds %>%
@@ -27,3 +29,17 @@ opening_odds <- odds %>%
 
 opening_odds  # Prints preview
 show_query(opening_odds)  # Shows SQL
+
+# Getting number of matches, leagues and teams from results1
+results <- tbl(con, "results1")
+
+summary_stats <- results %>%
+  summarise(
+    unique_events = n_distinct(event_id),
+    unique_teams = n_distinct(home_team),
+    unique_leagues = n_distinct(league_id)
+  )
+
+# Table returned by dbplyr is strange, cast as regular df
+summary_stats <- as.data.frame(summary_stats)
+df[1,1]
