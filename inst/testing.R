@@ -1,3 +1,6 @@
+# file for myself to try out packages and functions - retained incase anyone is curious
+
+
 # Testing dbplyer
 
 install.packages(c("DBI", "RPostgres", "dbplyr", "dplyr"))
