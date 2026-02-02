@@ -6,6 +6,11 @@
 # > Wires top-level UI and module servers
 
 source("global.R")
+# Source utilities
+source("R/utils_db.R")
+source("R/utils_odds.R")
+source("R/utils_plotting.R")
+# Source modules
 source("R/mod_about.R")
 source("R/mod_howto.R")
 source("R/mod_grapher.R")

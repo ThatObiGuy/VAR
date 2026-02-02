@@ -101,8 +101,28 @@ mod_grapher_server <- function(id) {
       )
     })
 
+    # Reactive: selected event_id from DT single-row selection
+    selected_event_id <- reactive({
+      rows <- input$matches_table_rows_selected
+      req(length(rows) == 1)
+      matches_data()[["event_id"]][rows]
+    })
+
+    # Reactive: pull odds for the selected event
+    event_df <- reactive({
+      req(selected_event_id())
+      get_event_odds(con, selected_event_id())
+    })
+
+    # Plot: favourite odds percentage change over time for selected match
     output$single_odds_plot <- renderPlot({
-      ggplot2::ggplot() + ggplot2::theme_minimal()
+      # If nothing selected, return a blank plot (preserve previous UX)
+      if (is.null(input$matches_table_rows_selected) || length(input$matches_table_rows_selected) == 0) {
+        return(invisible(NULL))
+      }
+      df <- event_df()
+      validate(need(nrow(df) > 0, "No odds available for this event."))
+      plot_fav_odds_change(df)
     })
   })
 }
