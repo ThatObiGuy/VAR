@@ -1,5 +1,4 @@
-# file for myself to try out packages and functions - retained incase anyone is curious
-
+# files for myself as I try to figure out how I'm going about this - retained incase anyone is curious
 
 # Testing dbplyer
 
@@ -9,6 +8,7 @@ library(DBI)
 library(RPostgres)
 library(dbplyr)
 library(dplyr)
+library(ggplot2)
 
 # Secure credential handling (set these via in the .Renviron)
 con <- dbConnect(

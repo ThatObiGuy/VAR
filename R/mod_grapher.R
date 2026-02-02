@@ -92,7 +92,7 @@ mod_grapher_server <- function(id) {
         matches_data(),
         selection = 'single',
         options = list(
-          pageLength = 10,
+          pageLength = 5,
           lengthMenu = c(5, 10, 25, 50),
           scrollX = TRUE
         ),
