@@ -10,3 +10,5 @@ library(dbplyr) # To allow us to use the language of dplyr rather than SQL on ou
 library(dplyr) # any server side adjustments
 library(DT) # DataTable used to allow users to select matches
 library(ggplot2) # Familiar graphing tool
+library(plotly) # Interactive plots for Teams view
+library(scales)  # Color palettes and scaling utilities
