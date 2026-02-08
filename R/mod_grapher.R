@@ -56,7 +56,8 @@ mod_grapher_ui <- function(id) {
       conditionalPanel(
         condition = sprintf("input['%s'] == 'Leagues'", ns("menu")),
         h1("LEAGUES"),
-        h2("Needs more data...")
+        h2("Market Entropy Distribution by League"),
+        plotlyOutput(ns("league_entropy_plot"))
       )
     )
   )
@@ -356,5 +357,59 @@ mod_grapher_server <- function(id) {
       # Pass unified color map so legend matches calibration plot
       plot_team_performance(perf_df, residual_sd = residual_sd, color_map = team_color_map())
     })
+    
+    ####
+    # LEAGUES VIEW: Entropy distribution by league (violin + jitter)
+    ####
+    
+    # Reactive: entropy data joined with match results
+    match_entropy_data <- reactive({
+      entropy_tbl <- dplyr::tbl(con, "entropy")
+      
+      entropy_tbl |>
+        dplyr::select(event_id, entropy) |>
+        dplyr::inner_join(
+          results |>
+            dplyr::select(event_id, league_name, starts, home_team, away_team, result),
+          by = "event_id"
+        ) |>
+        dplyr::collect() |>
+        dplyr::mutate(
+          starts = as.POSIXct(starts, tz = "UTC"),
+          tooltip_text = paste0(
+            league_name, "\n",
+            format(starts, "%Y-%m-%d %H:%M UTC"), "\n",
+            home_team, " vs ", away_team, "\n",
+            "Outcome: ", result, "\n",
+            "Entropy: ", round(entropy, 3), " bits\n",
+            "event_id: ", event_id
+          )
+        )
+    })
+    
+    # Plotly output: violin plot of entropy by league with jittered points and tooltips
+    output$league_entropy_plot <- plotly::renderPlotly({
+      df <- match_entropy_data()
+      validate(need(nrow(df) > 0, "No entropy data available to plot."))
+      
+      # Create ggplot violin
+      p_violin <- ggplot(df, aes(x = league_name, y = entropy)) +
+        geom_violin(fill = "steelblue", alpha = 0.4, color = "grey30",
+                    draw_quantiles = c(0.25, 0.5, 0.75)) +
+        geom_jitter(aes(text = tooltip_text), width = 0.15, height = 0,
+                    size = 1.5, alpha = 0.5, color = "#2c3e50") +
+        theme_minimal() +
+        labs(
+          title = "Entropy distribution by league",
+          x = "League",
+          y = "Shannon entropy (bits)"
+        ) +
+        theme(
+          axis.text.x = element_text(angle = 45, hjust = 1)
+        )
+      
+      ggplotly(p_violin, tooltip = "text")
+    })
   })
 }
+
