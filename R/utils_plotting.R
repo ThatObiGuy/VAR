@@ -254,3 +254,9 @@ plot_team_performance <- function(perf_data, residual_sd, color_map = NULL, k = 
     )
   plotly::ggplotly(gp, tooltip = "text")
 }
+
+# Convert character/factor x into a factor whose levels follow names(pal)
+factor_with_palette <- function(x, pal) {
+  lvls <- names(pal)
+  factor(as.character(x), levels = lvls)
+}
