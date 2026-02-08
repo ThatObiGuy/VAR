@@ -20,6 +20,7 @@ mod_grapher_ui <- function(id) {
         condition = sprintf("input['%s'] == 'Overview'", ns("menu")),
         h1("OVERVIEW"),
         h2("Displaying data from odds markets on:"),
+        uiOutput(ns("db_status_indicator")),  # DB connection status indicator
         h3(textOutput(ns("overview_text")))
       ),
       conditionalPanel(
@@ -70,6 +71,60 @@ mod_grapher_server <- function(id) {
     # Per-session DB connection
     con <- connect_db()
     session$onSessionEnded(function() disconnect_db(con))
+    
+    # DB connection status: lightweight test + poll every 30s
+    test_db_connection <- function(con) {
+      tryCatch({
+        # Lightweight query: just check if connection is alive
+        DBI::dbGetQuery(con, "SELECT 1 AS test") 
+        return(TRUE)
+      }, error = function(e) {
+        return(FALSE)
+      })
+    }
+    
+    db_status <- reactivePoll(
+      intervalMillis = 30000,  # Check every 30 seconds
+      session = session,
+      checkFunc = function() {
+        # Return current timestamp as the "version" to compare
+        as.numeric(Sys.time())
+      },
+      valueFunc = function() {
+        # Test the connection and return status
+        test_db_connection(con)
+      }
+    )
+    
+    output$db_status_indicator <- renderUI({
+      is_connected <- db_status()
+      
+      if (is_connected) {
+        tags$div(
+          style = "margin-top: 10px; margin-bottom: 10px;",
+          tags$span(
+            style = "color: #28a745; font-size: 18px; vertical-align: middle;",
+            "●"  # Green dot
+          ),
+          tags$span(
+            style = "margin-left: 5px; vertical-align: middle; font-weight: bold;",
+            "Connected"
+          )
+        )
+      } else {
+        tags$div(
+          style = "margin-top: 10px; margin-bottom: 10px;",
+          tags$span(
+            style = "color: #dc3545; font-size: 18px; vertical-align: middle;",
+            "●"  # Red dot
+          ),
+          tags$span(
+            style = "margin-left: 5px; vertical-align: middle; font-weight: bold; color: #dc3545;",
+            "Failed to connect"
+          )
+        )
+      }
+    })
     
     # Lazily reference tables via dbplyr
     results <- dplyr::tbl(con, "results1")
