@@ -175,24 +175,29 @@ mod_grapher_server <- function(id) {
         dplyr::mutate(starts = as.POSIXct(starts, tz = "UTC"))
     })
     
-    # Plotly output: Data coverage timeline (weekly bins)
+    # Plotly output: Data coverage timeline (weekly bins), stacked by league using shared palette
     output$overview_coverage_plot <- plotly::renderPlotly({
       df <- overview_results_data()
       validate(need(nrow(df) > 0, "No data available to plot coverage timeline."))
       
-      p <- ggplot2::ggplot(df, ggplot2::aes(x = starts)) +
+      pal <- league_palette()
+      df$league_name <- factor_with_palette(df$league_name, pal)
+      
+      p <- ggplot2::ggplot(df, ggplot2::aes(x = starts, fill = league_name)) +
         ggplot2::geom_histogram(
           binwidth = 7 * 24 * 60 * 60,  # 7 days in seconds for POSIXct
-          fill = "steelblue",
-          alpha = 0.8,
+          alpha = 0.9,
           color = "white",
-          linewidth = 0.3
+          linewidth = 0.2,
+          position = "stack"
         ) +
+        scale_fill_league(values = pal) +
         ggplot2::theme_minimal() +
         ggplot2::labs(
-          title = "Match Coverage Over Time",
+          title = "Match Coverage Over Time (by League)",
           x = "Date",
-          y = "Number of Matches"
+          y = "Number of Matches",
+          fill = "League"
         ) +
         ggplot2::theme(
           axis.text.x = ggplot2::element_text(angle = 45, hjust = 1)
@@ -202,10 +207,23 @@ mod_grapher_server <- function(id) {
         plotly::layout(hovermode = "closest")
     })
     
+    # Precompute a consistent league palette once per session
+    league_palette <- reactive({
+      pal <- get_league_colors(con, prefer_db_colors = TRUE, key = "league_id")
+      validate(need(length(pal) > 0, "No leagues found to build palette"))
+      pal
+    })
+    factor_with_palette <- function(x, pal) {
+      lvls <- names(pal)
+      factor(as.character(x), levels = lvls)
+    }
+    
     # Plotly output: League distribution (horizontal bars)
     output$overview_league_dist_plot <- plotly::renderPlotly({
       df <- overview_results_data()
       validate(need(nrow(df) > 0, "No data available to plot league distribution."))
+      
+      pal <- league_palette()
       
       league_distribution <- df |>
         dplyr::group_by(league_name) |>
@@ -220,12 +238,16 @@ mod_grapher_server <- function(id) {
           )
         )
       
+      league_distribution$league_name <- factor_with_palette(league_distribution$league_name, pal)
+      
       p <- ggplot2::ggplot(
         league_distribution,
-        ggplot2::aes(x = reorder(league_name, match_count), y = match_count, text = tooltip_text)
+        ggplot2::aes(x = reorder(league_name, match_count), y = match_count, fill = league_name, text = tooltip_text)
       ) +
-        ggplot2::geom_col(fill = "darkorange", alpha = 0.8) +
+        ggplot2::geom_col(alpha = 0.9, color = "white", linewidth = 0.2) +
         ggplot2::coord_flip() +
+        scale_fill_league(values = pal) +
+        ggplot2::guides(fill = "none") +
         ggplot2::theme_minimal() +
         ggplot2::labs(
           title = "Match Distribution by League",
@@ -425,12 +447,21 @@ mod_grapher_server <- function(id) {
     # TEAMS VIEW: PLOTS -  refactored to utilities with unified legend
     ####
     
-    # Generate unified color map once per session for Teams view based on leagues present
+    # Generate unified color map once per session for Teams view based on global league palette
     team_color_map <- reactive({
       df <- team_long()
-      leagues <- unique(df$league_name)
-      # We deliberately fix the mapping order to the unique() order to keep legend consistent
-      setNames(scales::hue_pal()(length(leagues)), leagues)
+      req(nrow(df) > 0)
+      pal <- league_palette()  # shared league palette for the whole module/session
+      leagues_present <- unique(df$league_name)
+      # Subset the global palette to the leagues present, preserving the global order for consistency
+      pal_subset <- pal[names(pal) %in% leagues_present]
+      # For any leagues not in the global palette (edge case), generate fallback colors deterministically
+      missing <- setdiff(leagues_present, names(pal_subset))
+      if (length(missing) > 0) {
+        fallback <- deterministic_palette(missing)
+        pal_subset <- c(pal_subset, fallback)
+      }
+      pal_subset
     })
     
     # 1) Calibration Plot: Implied vs Actual Win Rate with Wilson CI
@@ -535,10 +566,13 @@ mod_grapher_server <- function(id) {
       df <- match_entropy_data()
       validate(need(nrow(df) > 0, "No entropy data available to plot."))
       
+      pal <- league_palette()
+      df$league_name <- factor_with_palette(df$league_name, pal)
+      
       # Create ggplot violin
-      p_violin <- ggplot(df, aes(x = league_name, y = entropy)) +
-        geom_violin(fill = "steelblue", alpha = 0.4, color = "grey30",
-                    draw_quantiles = c(0.25, 0.5, 0.75)) +
+      p_violin <- ggplot(df, aes(x = league_name, y = entropy, fill = league_name)) +
+        geom_violin(alpha = 0.7, color = "grey30", draw_quantiles = c(0.25, 0.5, 0.75)) +
+        scale_fill_league(values = pal) +
         geom_jitter(aes(text = tooltip_text), width = 0.15, height = 0,
                     size = 1.5, alpha = 0.5, color = "#2c3e50") +
         theme_minimal() +

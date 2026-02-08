@@ -1,4 +1,66 @@
-# Plotting helpers (pure; no DB or Shiny dependencies)
+# Plotting helpers (pure; no Shiny dependencies). Some helpers accept a DB connection
+# to retrieve metadata (e.g., leagues) using DBI safely when available.
+
+# Deterministic color utilities -------------------------------------------------
+
+
+# Internal: get the base R Set 1 qualitative palette
+set1_palette <- function(n) {
+  # grDevices::palette.colors provides ColorBrewer palettes, including Set 1
+  grDevices::palette.colors(n, palette = "Set 1")
+}
+
+# Generate deterministic color for each key (e.g., league_id or name) using Set 1
+# Mapping is deterministic by sorting unique keys and assigning the first n colors.
+deterministic_palette <- function(keys) {
+  u <- sort(unique(as.character(keys)), na.last = TRUE)
+  n <- length(u)
+  base_cols <- set1_palette(max(n, 1))
+  if (n > length(base_cols)) {
+    # Recycle if more groups than palette length
+    cols <- rep(base_cols, length.out = n)
+  } else {
+    cols <- base_cols[seq_len(n)]
+  }
+  stats::setNames(cols, u)
+}
+
+# Build named vector of league colors using DB colors when available.
+# Falls back to distinct leagues from results1 if a dedicated leagues table is absent.
+get_league_colors <- function(db_con, prefer_db_colors = TRUE, key = c("league_id", "league_name")) {
+  # Simple behavior: assign each league a color from base R Set 1, in order.
+  # We ignore DB-provided colors and the key argument for simplicity.
+  if (is.null(db_con)) {
+    return(stats::setNames(character(0), character(0)))
+  }
+  
+  leagues <- tryCatch({
+    DBI::dbGetQuery(
+      db_con,
+      "SELECT DISTINCT league_name FROM results1 WHERE league_name IS NOT NULL ORDER BY league_name"
+    )
+  }, error = function(e) NULL)
+  
+  if (is.null(leagues) || nrow(leagues) == 0) {
+    return(stats::setNames(character(0), character(0)))
+  }
+  
+  lg <- as.character(leagues$league_name)
+  n <- length(lg)
+  pal <- set1_palette(max(n, 1))
+  cols <- if (n <= length(pal)) pal[seq_len(n)] else rep(pal, length.out = n)
+  stats::setNames(cols, lg)
+}
+
+# ggplot helper scales (do not drop levels to keep colors stable when subsetting)
+scale_color_league <- function(values) ggplot2::scale_color_manual(values = values, drop = FALSE, name = "League")
+scale_fill_league  <- function(values) ggplot2::scale_fill_manual(values = values, drop = FALSE, name = "League")
+
+# Plotly helper to align colors to factor levels in data
+league_plotly_colors <- function(levels, palette) {
+  nm <- intersect(levels, names(palette))
+  unname(palette[nm])
+}
 
 # Plot percentage change of closing favourite odds over time
 plot_fav_odds_change <- function(df) {
@@ -78,7 +140,7 @@ plot_team_calibration <- function(calib_data, color_map = NULL) {
   # Unified legend color mapping
   leagues <- unique(calib_data$league_name)
   if (is.null(color_map)) {
-    color_map <- stats::setNames(scales::hue_pal()(length(leagues)), leagues)
+    color_map <- stats::setNames(set1_palette(length(leagues)), leagues)
   } else {
     # Ensure all leagues have a color
     missing_keys <- setdiff(leagues, names(color_map))
@@ -155,7 +217,7 @@ plot_team_performance <- function(perf_data, residual_sd, color_map = NULL, k = 
   }
   leagues <- unique(perf_data$league_name)
   if (is.null(color_map)) {
-    color_map <- stats::setNames(scales::hue_pal()(length(leagues)), leagues)
+    color_map <- stats::setNames(set1_palette(length(leagues)), leagues)
   } else {
     missing_keys <- setdiff(leagues, names(color_map))
     if (length(missing_keys) > 0) {
