@@ -9,7 +9,7 @@ mod_grapher_ui <- function(id) {
       radioButtons(
         inputId = ns("menu"),
         label = "Select View",
-        choices = c("Overview", "Single Match", "Compare Matches", "Teams", "Leagues"),
+        choices = c("Overview", "Matches", "Teams", "Leagues"),
         selected = "Overview",
         inline = FALSE
       )
@@ -23,16 +23,26 @@ mod_grapher_ui <- function(id) {
         h3(textOutput(ns("overview_text")))
       ),
       conditionalPanel(
-        condition = sprintf("input['%s'] == 'Single Match'", ns("menu")),
-        h1("SINGLE MATCH"),
-        p("Click on a match to select it:"),
-        DT::DTOutput(ns("matches_table")),
+        condition = sprintf("input['%s'] == 'Matches'", ns("menu")),
+        h1("MATCHES"),
+        p("Narrow by league to speed up loading and reduce data size (leave empty for all):"),
+        selectInput(
+          inputId = ns("league_filter"),
+          label = "Leagues",
+          choices = NULL, # populated from server based on DB
+          multiple = TRUE,
+          selected = NULL
+        ),
+        p("Then filter to one or more matches (leave empty to show all):"),
+        selectInput(
+          inputId = ns("match_filter"),
+          label = "Filter Matches",
+          choices = NULL, # populated from server based on DB
+          multiple = TRUE,
+          selected = NULL
+        ),
         hr(),
-        plotOutput(ns("single_odds_plot"))
-      ),
-      conditionalPanel(
-        condition = sprintf("input['%s'] == 'Compare Matches'", ns("menu")),
-        h1("COMPARE MATCHES")
+        plotlyOutput(ns("matches_plot"))
       ),
       conditionalPanel(
         condition = sprintf("input['%s'] == 'Teams'", ns("menu")),
@@ -84,51 +94,140 @@ mod_grapher_server <- function(id) {
             "different teams, across", leagues, "different leagues")
     })
     
-    # Prepare matches data for DT (explicit collect)
-    matches_data <- reactive({
+    # League choices (populated lazily from DB)
+    league_choices <- reactive({
+      # Keep this lightweight: only distinct league_name
       results |>
-        dplyr::select(event_id, home_team, away_team, league_name, starts) |>
+        dplyr::distinct(league_name) |>
+        dplyr::arrange(league_name) |>
+        dplyr::collect() |>
+        dplyr::pull(league_name)
+    })
+    
+    observe({
+      updateSelectInput(
+        session,
+        inputId = "league_filter",
+        choices = league_choices(),
+        selected = NULL # no default = all leagues
+      )
+    })
+    
+    # Prepare matches data for filter choices (explicit collect)
+    matches_data <- reactive({
+      # Start with base selection (lazy)
+      tbl <- results |>
+        dplyr::select(event_id, home_team, away_team, league_name, starts)
+      # Apply league filter, if any (still lazy on DB)
+      lf <- input$league_filter
+      if (!is.null(lf) && length(lf) > 0) {
+        tbl <- tbl |>
+          dplyr::filter(.data$league_name %in% lf)
+      }
+      tbl |>
         dplyr::collect() |>
         dplyr::mutate(Match_Date = format(as.Date(starts), "%Y-%m-%d")) |>
         dplyr::select(event_id, home_team, away_team, league_name, Match_Date)
     })
     
-    output$matches_table <- DT::renderDT({
-      DT::datatable(
-        matches_data(),
-        selection = 'single',
-        options = list(
-          pageLength = 5,
-          lengthMenu = c(5, 10, 25, 50),
-          scrollX = TRUE
-        ),
-        rownames = FALSE,
-        colnames = c("Event ID", "Home Team", "Away Team", "League", "Match Date")
+    # Choices for selectInput: names shown as "Home vs. Away, YYYY-MM-DD" with event_id as value
+    match_choices <- reactive({
+      md <- matches_data()
+      if (nrow(md) == 0) return(setNames(numeric(0), character(0)))
+      labels <- paste0(md$home_team, " vs. ", md$away_team, ", ", md$Match_Date)
+      stats::setNames(md$event_id, labels)
+    })
+    
+    # Update the selectInput choices whenever matches_data changes
+    observe({
+      updateSelectInput(
+        session,
+        inputId = "match_filter",
+        choices = match_choices(),
+        selected = NULL # start with no selection = show all
       )
     })
     
-    # Reactive: selected event_id from DT single-row selection
-    selected_event_id <- reactive({
-      rows <- input$matches_table_rows_selected
-      req(length(rows) == 1)
-      matches_data()[["event_id"]][rows]
-    })
-    
-    # Reactive: pull odds for the selected event
-    event_df <- reactive({
-      req(selected_event_id())
-      get_event_odds(con, selected_event_id())
-    })
-    
-    # Plot: favourite odds percentage change over time for selected match
-    output$single_odds_plot <- renderPlot({
-      # If nothing selected, return a blank plot (preserve previous UX)
-      if (is.null(input$matches_table_rows_selected) || length(input$matches_table_rows_selected) == 0) {
-        return(invisible(NULL))
+    # Reactive: selected event_ids from the filter (NULL/empty means all)
+    selected_event_ids <- reactive({
+      ids <- input$match_filter
+      all_ids <- matches_data()$event_id
+      if (is.null(ids) || length(ids) == 0) {
+        return(all_ids)
       }
-      df <- event_df()
-      validate(need(nrow(df) > 0, "No odds available for this event."))
-      plot_fav_odds_change(df)
+      # Coerce to numeric to match DB type; drop NAs
+      sel <- suppressWarnings(as.numeric(ids))
+      sel <- sel[!is.na(sel)]
+      if (length(sel) == 0) all_ids else sel
+    })
+    
+    
+    # Reactive: pull odds for all selected (or all) events and compute pct-change per event (single batch DB query)
+    multi_events_df <- reactive({
+      ids <- selected_event_ids()
+      md <- matches_data()
+      req(length(ids) >= 1, nrow(md) >= 1)
+      
+      # Build a named vector for labels to attach to each event's series
+      label_map <- setNames(
+        paste0(md$home_team, " vs. ", md$away_team, ", ", md$Match_Date),
+        md$event_id
+      )
+      
+      # SINGLE DB QUERY for all events, then process in-memory
+      all_odds <- odds |>
+        dplyr::filter(event_id %in% !!ids) |>
+        dplyr::collect()
+      
+      if (nrow(all_odds) == 0) return(dplyr::tibble())
+      
+      dfs <- lapply(ids, function(eid) {
+        df <- all_odds |> dplyr::filter(event_id == eid)
+        if (nrow(df) == 0) return(NULL)
+        df2 <- compute_fav_change(df)
+        df2$event_id <- eid
+        df2$event_label <- label_map[[as.character(eid)]]
+        df2
+      })
+      
+      dfs <- Filter(Negate(is.null), dfs)
+      if (length(dfs) == 0) return(dplyr::tibble())
+      dplyr::bind_rows(dfs)
+    })
+    
+    # Plot: favourite odds percentage change over time for one or many matches (native Plotly for performance)
+    output$matches_plot <- plotly::renderPlotly({
+      df <- multi_events_df()
+      if (is.null(df) || nrow(df) == 0) return(plotly::plot_ly())
+      
+      p <- plotly::plot_ly()
+      
+      for (event_label in unique(df$event_label)) {
+        event_df <- df[df$event_label == event_label, ]
+        p <- plotly::add_lines(
+          p,
+          data = event_df,
+          x = ~logged_time,
+          y = ~pct_change_fav_odds,
+          name = event_label,
+          line = list(width = 2),
+          showlegend = FALSE,
+          hovertemplate = paste0(
+            "<b>%{fullData.name}</b><br>",
+            "Time: %{x|%Y-%m-%d %H:%M}<br>",
+            "Change: %{y:.2f}%<extra></extra>"
+          )
+        )
+      }
+      
+      p |>
+        plotly::layout(
+          title = "Change over time of closing favourite odds",
+          xaxis = list(title = "Time"),
+          yaxis = list(title = "Odds Change (%)"),
+          hovermode = "closest",
+          showlegend = FALSE
+        )
     })
     
     ####
