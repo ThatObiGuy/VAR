@@ -32,15 +32,19 @@ mod_grapher_overview_server <- function(id, con, league_palette) {
     # Lazily reference results table
     results <- dplyr::tbl(con, "results1")
     
-    # Compute counts for header text (collect)
-    summary_stats <- results |>
-      dplyr::summarise(
-        unique_events = dplyr::n_distinct(event_id),
-        unique_teams = dplyr::n_distinct(home_team),
-        unique_leagues = dplyr::n_distinct(league_id)
-      ) |>
-      dplyr::collect()
-    n_observations <- dplyr::tbl(con, "odds1x2") |> dplyr::tally() |> dplyr::pull(n)
+    # Compute counts for header text (collect) with persistent notification
+    {
+      id <- shiny::showNotification("Loading overview metrics from database...", duration = NULL, type = "message")
+      on.exit(shiny::removeNotification(id), add = TRUE)
+      summary_stats <- results |>
+        dplyr::summarise(
+          unique_events = dplyr::n_distinct(event_id),
+          unique_teams = dplyr::n_distinct(home_team),
+          unique_leagues = dplyr::n_distinct(league_id)
+        ) |>
+        dplyr::collect()
+      n_observations <- dplyr::tbl(con, "odds1x2") |> dplyr::tally() |> dplyr::pull(n)
+    }
     
     output$overview_text <- renderText({
       matches <- summary_stats$unique_events[[1]]
@@ -63,6 +67,8 @@ mod_grapher_overview_server <- function(id, con, league_palette) {
     
     # Minimal results data for overview plots
     overview_results_data <- reactive({
+      id <- shiny::showNotification("Loading overview data...", duration = NULL, type = "message")
+      on.exit(shiny::removeNotification(id), add = TRUE)
       results |>
         dplyr::select(event_id, league_name, starts) |>
         dplyr::collect() |>

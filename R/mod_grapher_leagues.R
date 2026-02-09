@@ -18,6 +18,8 @@ mod_grapher_leagues_server <- function(id, con, league_palette) {
     entropy <- dplyr::tbl(con, "entropy")
     
     match_entropy_data <- reactive({
+      id <- shiny::showNotification("Loading league entropy data...", duration = NULL, type = "message")
+      on.exit(shiny::removeNotification(id), add = TRUE)
       entropy |>
         dplyr::select(event_id, entropy) |>
         dplyr::inner_join(

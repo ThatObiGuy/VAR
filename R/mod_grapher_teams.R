@@ -22,15 +22,17 @@ mod_grapher_teams_server <- function(id, con, league_palette) {
     entropy <- dplyr::tbl(con, "entropy")
     
     closing_base <- reactive({
-      odds |>
-        dplyr::group_by(event_id) |>
-        dplyr::filter(logged_time == max(logged_time)) |>
-        dplyr::ungroup() |>
-        dplyr::select(event_id, league_name, starts, home_team, away_team) |>
-        dplyr::inner_join(results |> dplyr::select(event_id, result), by = "event_id") |>
-        dplyr::inner_join(entropy |> dplyr::select(event_id, p_home, p_draw, p_away), by = "event_id") |>
-        dplyr::collect() |>
-        dplyr::mutate(starts = as.POSIXct(starts, tz = "UTC"))
+      shiny::withProgress(message = "Loading team-level closing odds...", value = 0, {
+        odds |>
+          dplyr::group_by(event_id) |>
+          dplyr::filter(logged_time == max(logged_time)) |>
+          dplyr::ungroup() |>
+          dplyr::select(event_id, league_name, starts, home_team, away_team) |>
+          dplyr::inner_join(results |> dplyr::select(event_id, result), by = "event_id") |>
+          dplyr::inner_join(entropy |> dplyr::select(event_id, p_home, p_draw, p_away), by = "event_id") |>
+          dplyr::collect() |>
+          dplyr::mutate(starts = as.POSIXct(starts, tz = "UTC"))
+      })
     })
     
     team_long <- reactive({

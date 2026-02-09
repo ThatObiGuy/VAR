@@ -21,6 +21,8 @@ mod_grapher_matches_server <- function(id, con) {
     odds    <- dplyr::tbl(con, "odds1x2")
     
     league_choices <- reactive({
+      id <- shiny::showNotification("Loading leagues...", duration = NULL, type = "message")
+      on.exit(shiny::removeNotification(id), add = TRUE)
       results |>
         dplyr::distinct(league_name) |>
         dplyr::arrange(league_name) |>
@@ -33,6 +35,8 @@ mod_grapher_matches_server <- function(id, con) {
     })
     
     matches_data <- reactive({
+      id <- shiny::showNotification("Loading matches...", duration = NULL, type = "message")
+      on.exit(shiny::removeNotification(id), add = TRUE)
       tbl <- results |>
         dplyr::select(event_id, home_team, away_team, league_name, starts)
       lf <- input$league_filter
@@ -75,6 +79,8 @@ mod_grapher_matches_server <- function(id, con) {
         md$event_id
       )
       
+      id <- shiny::showNotification("Loading odds for selected matches...", duration = NULL, type = "message")
+      on.exit(shiny::removeNotification(id), add = TRUE)
       all_odds <- odds |>
         dplyr::filter(event_id %in% !!ids) |>
         dplyr::select(logged_time, home_odds, draw_odds, away_odds, max_money_line, event_id) |>
