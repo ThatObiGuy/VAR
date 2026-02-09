@@ -53,8 +53,14 @@ get_league_colors <- function(db_con, prefer_db_colors = TRUE, key = c("league_i
 }
 
 # ggplot helper scales (do not drop levels to keep colors stable when subsetting)
-scale_color_league <- function(values) ggplot2::scale_color_manual(values = values, drop = FALSE, name = "League")
-scale_fill_league  <- function(values) ggplot2::scale_fill_manual(values = values, drop = FALSE, name = "League")
+scale_color_league <- function(values) {
+  brks <- sort(names(values))
+  ggplot2::scale_color_manual(values = values, breaks = brks, limits = brks, drop = FALSE, name = "League")
+}
+scale_fill_league  <- function(values) {
+  brks <- sort(names(values))
+  ggplot2::scale_fill_manual(values = values, breaks = brks, limits = brks, drop = FALSE, name = "League")
+}
 
 # Plotly helper to align colors to factor levels in data
 league_plotly_colors <- function(levels, palette) {
@@ -138,7 +144,7 @@ plot_team_calibration <- function(calib_data, color_map = NULL) {
     return(plotly::plot_ly())
   }
   # Unified legend color mapping
-  leagues <- unique(calib_data$league_name)
+  leagues <- sort(unique(calib_data$league_name))
   if (is.null(color_map)) {
     color_map <- stats::setNames(set1_palette(length(leagues)), leagues)
   } else {
@@ -189,8 +195,8 @@ plot_team_calibration <- function(calib_data, color_map = NULL) {
   }
   p |>
     plotly::layout(
-      title = list(text = "Calibration: Implied vs Actual Win Rate by Team"),
-      xaxis = list(title = "Average Implied Win Probability", range = c(-0.05, 1.05), showgrid = TRUE, gridcolor = "rgba(0,0,0,0.1)"),
+      title = list(text = "Implied vs Actual Win Rate by Team"),
+      xaxis = list(title = "Implied Win Rate", range = c(-0.05, 1.05), showgrid = TRUE, gridcolor = "rgba(0,0,0,0.1)"),
       yaxis = list(title = "Actual Win Rate", range = c(-0.05, 1.05), showgrid = TRUE, gridcolor = "rgba(0,0,0,0.1)"),
       legend = list(title = list(text = "League")),
       hovermode = "closest",
@@ -215,7 +221,7 @@ plot_team_performance <- function(perf_data, residual_sd, color_map = NULL, k = 
   if (nrow(perf_data) == 0) {
     return(plotly::plot_ly())
   }
-  leagues <- unique(perf_data$league_name)
+  leagues <- sort(unique(perf_data$league_name))
   if (is.null(color_map)) {
     color_map <- stats::setNames(set1_palette(length(leagues)), leagues)
   } else {
@@ -244,10 +250,10 @@ plot_team_performance <- function(perf_data, residual_sd, color_map = NULL, k = 
       alpha = 0.3
     ) +
     ggplot2::geom_line(alpha = 0.7) +
-    ggplot2::scale_color_manual(values = color_map, breaks = names(color_map), name = "League") +
+    ggplot2::scale_color_manual(values = color_map, breaks = sort(names(color_map)), limits = sort(names(color_map)), name = "League") +
     ggplot2::theme_minimal() +
     ggplot2::labs(
-      title = "Cumulative Over/Underperformance vs Market",
+      title = NULL,
       subtitle = "Grey ribbon: ±2σ√n random walk bounds",
       x = "Match Date",
       y = "Cumulative residual points"

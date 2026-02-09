@@ -3,23 +3,14 @@
 # UI
 mod_grapher_ui <- function(id) {
   ns <- NS(id) # https://shiny.posit.co/r/articles/improve/modules/
-  sidebarLayout(
-    sidebarPanel(
-      width = 1,
-      radioButtons(
-        inputId = ns("menu"),
-        label = "Select View",
-        choices = c("Overview", "Matches", "Teams", "Leagues"),
-        selected = "Overview",
-        inline = FALSE
-      )
-    ),
-    mainPanel(
-      width = 10,
-      conditionalPanel(sprintf("input['%s'] == 'Overview'", ns("menu")),  mod_grapher_overview_ui(ns("overview"))),
-      conditionalPanel(sprintf("input['%s'] == 'Matches'",  ns("menu")),  mod_grapher_matches_ui(ns("matches"))),
-      conditionalPanel(sprintf("input['%s'] == 'Teams'",    ns("menu")),  mod_grapher_teams_ui(ns("teams"))),
-      conditionalPanel(sprintf("input['%s'] == 'Leagues'",  ns("menu")),  mod_grapher_leagues_ui(ns("leagues")))
+  tagList(
+    tabsetPanel(
+      id = ns("subtab"),
+      type = "tabs",
+      tabPanel("Overview", value = "Overview", mod_grapher_overview_ui(ns("overview"))),
+      tabPanel("Matches",  value = "Matches",  mod_grapher_matches_ui(ns("matches"))),
+      tabPanel("Teams",    value = "Teams",    mod_grapher_teams_ui(ns("teams"))),
+      tabPanel("Leagues",  value = "Leagues",  mod_grapher_leagues_ui(ns("leagues")))
     )
   )
 }

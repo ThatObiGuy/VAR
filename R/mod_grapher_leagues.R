@@ -53,7 +53,7 @@ mod_grapher_leagues_server <- function(id, con, league_palette) {
         ggplot2::geom_jitter(ggplot2::aes(text = tooltip_text), width = 0.15, height = 0,
                              size = 1.5, alpha = 0.5, color = "#2c3e50") +
         ggplot2::theme_minimal() +
-        ggplot2::labs(title = "Entropy distribution by league", x = "League", y = "Shannon entropy (bits)") +
+        ggplot2::labs(title = NULL , x = "League", y = "Shannon entropy (bits)") +
         ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
       
       plotly::ggplotly(p_violin, tooltip = "text")
