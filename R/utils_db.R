@@ -8,7 +8,9 @@ connect_db <- function() {
     port = 5432,
     dbname = Sys.getenv("PGDATABASE"),
     user = Sys.getenv("PGUSER"),
-    password = Sys.getenv("PGPASSWORD")
+    password = Sys.getenv("PGPASSWORD"),
+    sslmode = "require",
+    channel_binding = "prefer"
   )
 }
 
