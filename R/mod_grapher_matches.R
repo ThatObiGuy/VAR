@@ -3,10 +3,20 @@
 mod_grapher_matches_ui <- function(id) {
   ns <- NS(id)
   tagList(
-    h1("MATCHES"),
-    p("Narrow by league to speed up loading and reduce data size (leave empty for all):"),
+    div(
+      style = "display: flex; align-items: center; gap: 10px;",
+      h1("MATCHES", style = "margin: 0;"),
+      actionButton(
+        ns("help_matches"),
+        label = NULL,
+        icon = icon("question-circle"),
+        style = "font-size: 16px; color: #e67e22; background: transparent; border: none;",
+        title = "Show help for matches"
+      )
+    ),
+    p("Narrow by league (leave empty for all):"),
     selectInput(ns("league_filter"), "Leagues", choices = NULL, multiple = TRUE, selected = NULL),
-    p("Then filter to one or more matches (leave empty to show all):"),
+    p("Filter to one or more matches (leave empty to show all):"),
     selectInput(ns("match_filter"), "Filter Matches", choices = NULL, multiple = TRUE, selected = NULL),
     hr(),
     plotlyOutput(ns("matches_plot"))
@@ -15,10 +25,25 @@ mod_grapher_matches_ui <- function(id) {
 
 # Server
 # - con: DBI connection provided by parent
-mod_grapher_matches_server <- function(id, con) {
+# - ready: reactive logical to gate plotting (e.g., require leagues selected)
+# - external_ids: reactive vector of event_ids from manual selection to combine (intersection)
+mod_grapher_matches_server <- function(id, con, ready = reactive(TRUE), external_ids = reactive(NULL)) {
   moduleServer(id, function(input, output, session) {
     results <- dplyr::tbl(con, "results1")
     odds    <- dplyr::tbl(con, "odds1x2")
+    
+    observeEvent(input$help_matches, {
+      showModal(modalDialog(
+        title = "Help for matches plot",
+        tags$img(
+          src = "matches_help.png",
+          width = "100%",
+          style = "max-width: 800px;"
+        ),
+        easyClose = TRUE,
+        footer = modalButton("Close")
+      ))
+    })
     
     league_choices <- reactive({
       id <- shiny::showNotification("Loading leagues...", duration = NULL, type = "message")
@@ -63,13 +88,21 @@ mod_grapher_matches_server <- function(id, con) {
     selected_event_ids <- reactive({
       ids <- input$match_filter
       all_ids <- matches_data()$event_id
-      if (is.null(ids) || length(ids) == 0) return(all_ids)
-      sel <- suppressWarnings(as.numeric(ids))
-      sel <- sel[!is.na(sel)]
-      if (length(sel) == 0) all_ids else sel
+      if (is.null(ids) || length(ids) == 0) ids <- all_ids else {
+        sel <- suppressWarnings(as.numeric(ids))
+        sel <- sel[!is.na(sel)]
+        ids <- if (length(sel) == 0) all_ids else sel
+      }
+      ext <- tryCatch(external_ids(), error = function(e) NULL)
+      ext <- unique(as.numeric(ext))
+      ext <- ext[!is.na(ext)]
+      if (!is.null(ext) && length(ext) > 0) ids <- intersect(ids, ext)
+      unique(ids)
     })
     
     multi_events_df <- reactive({
+      # Gate heavy computation by readiness
+      req(isTRUE(ready()))
       ids <- selected_event_ids()
       md  <- matches_data()
       req(length(ids) >= 1, nrow(md) >= 1)
@@ -103,6 +136,7 @@ mod_grapher_matches_server <- function(id, con) {
     })
     
     output$matches_plot <- plotly::renderPlotly({
+      req(isTRUE(ready()))
       df <- multi_events_df()
       if (is.null(df) || nrow(df) == 0) return(plotly::plot_ly())
       
@@ -130,7 +164,13 @@ mod_grapher_matches_server <- function(id, con) {
                        xaxis = list(title = "Time"),
                        yaxis = list(title = "Odds Change (%)"),
                        hovermode = "closest",
-                       showlegend = FALSE)
+                       showlegend = FALSE) |>
+        plotly::config(modeBarButtonsToAdd = list("drawopenpath", "eraseshape"))
     })
+    
+    # Expose existing filter IDs (from this feature) for parent intersection
+    return(list(
+      existing_filtered_ids = selected_event_ids
+    ))
   })
 }

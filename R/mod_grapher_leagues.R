@@ -4,7 +4,17 @@ mod_grapher_leagues_ui <- function(id) {
   ns <- NS(id)
   tagList(
     h1("LEAGUES"),
-    h2("Market Entropy Distribution by League"),
+    div(
+      style = "display: flex; align-items: center; gap: 10px;",
+      h2("Market Entropy Distribution by League", style = "margin: 0;"),
+      actionButton(
+        ns("help_entropy"),
+        label = NULL,
+        icon = icon("question-circle"),
+        style = "font-size: 16px; color: #e67e22; background: transparent; border: none;",
+        title = "Show help for entropy plot"
+        )
+      ),
     plotlyOutput(ns("league_entropy_plot"))
   )
 }
@@ -16,6 +26,19 @@ mod_grapher_leagues_server <- function(id, con, league_palette) {
   moduleServer(id, function(input, output, session) {
     results <- dplyr::tbl(con, "results1")
     entropy <- dplyr::tbl(con, "entropy")
+    
+    observeEvent(input$help_entropy, {
+      showModal(modalDialog(
+        title = "Market Entropy Distribution Help",
+        tags$img(
+          src = "entropy_help.png",
+          width = "100%",
+          style = "max-width: 800px;"
+        ),
+        easyClose = TRUE,
+        footer = modalButton("Close")
+      ))
+    })
     
     match_entropy_data <- reactive({
       id <- shiny::showNotification("Loading league entropy data...", duration = NULL, type = "message")
@@ -56,7 +79,8 @@ mod_grapher_leagues_server <- function(id, con, league_palette) {
         ggplot2::labs(title = NULL , x = "League", y = "Shannon entropy (bits)") +
         ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
       
-      plotly::ggplotly(p_violin, tooltip = "text")
+      plotly::ggplotly(p_violin, tooltip = "text") |>
+        plotly::config(modeBarButtonsToAdd = list("drawopenpath", "eraseshape"))
     })
   })
 }

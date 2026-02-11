@@ -97,7 +97,8 @@ mod_grapher_overview_server <- function(id, con, league_palette) {
         ) +
         ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
       
-      plotly::ggplotly(p) |> plotly::layout(hovermode = "closest")
+      plotly::ggplotly(p) |> plotly::layout(hovermode = "closest") |>
+        plotly::config(modeBarButtonsToAdd = list("drawopenpath", "eraseshape"))
     })
     
     # Plot 2: league distribution
@@ -132,7 +133,8 @@ mod_grapher_overview_server <- function(id, con, league_palette) {
         ggplot2::theme_minimal() +
         ggplot2::labs(title = "Match Distribution by League", subtitle = "Total number of matches per league", x = " ", y = "Number of Matches")
       
-      plotly::ggplotly(p, tooltip = "text") |> plotly::layout(hovermode = "closest")
+      plotly::ggplotly(p, tooltip = "text") |> plotly::layout(hovermode = "closest") |>
+        plotly::config(modeBarButtonsToAdd = list("drawopenpath", "eraseshape"))
     })
   })
 }

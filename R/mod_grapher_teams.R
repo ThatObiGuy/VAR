@@ -4,10 +4,30 @@ mod_grapher_teams_ui <- function(id) {
   ns <- NS(id)
   tagList(
     h1("TEAMS"),
-    h2("Market Calibration Analysis"),
+    div(
+      style = "display: flex; align-items: center; gap: 10px;",
+      h2("Market Calibration Analysis", style = "margin: 0;"),
+      actionButton(
+        ns("help_calib"),
+        label = NULL,
+        icon = icon("question-circle"),
+        style = "font-size: 16px; color: #e67e22; background: transparent; border: none;",
+        title = "Show help for calibration analysis"
+      )
+    ),
     plotlyOutput(ns("team_calibration_plot")),
     hr(),
-    h2("Cumulative Performance vs Market"),
+    div(
+      style = "display: flex; align-items: center; gap: 10px;",
+      h2("Cumulative Performance vs Market", style = "margin: 0;"),
+      actionButton(
+        ns("help_cumulative"),
+        label = NULL,
+        icon = icon("question-circle"),
+        style = "font-size: 16px; color: #e67e22; background: transparent; border: none;",
+        title = "Show help for cumulative residual"
+      )
+    ),
     plotlyOutput(ns("team_performance_plot"))
   )
 }
@@ -20,6 +40,32 @@ mod_grapher_teams_server <- function(id, con, league_palette) {
     results <- dplyr::tbl(con, "results1")
     odds    <- dplyr::tbl(con, "odds1x2")
     entropy <- dplyr::tbl(con, "entropy")
+    
+    observeEvent(input$help_calib, {
+      showModal(modalDialog(
+        title = "Market Calibration Analysis Help",
+        tags$img(
+          src = "calib_help.png",
+          width = "100%",
+          style = "max-width: 800px;"
+        ),
+        easyClose = TRUE,
+        footer = modalButton("Close")
+      ))
+    })
+    
+    observeEvent(input$help_cumulative, {
+      showModal(modalDialog(
+        title = "Cumulative Performance Help",
+        tags$img(
+          src = "cumulative_help.png",
+          width = "100%",
+          style = "max-width: 800px;"
+        ),
+        easyClose = TRUE,
+        footer = modalButton("Close")
+      ))
+    })
     
     closing_base <- reactive({
       shiny::withProgress(message = "Loading team-level closing odds...", value = 0, {
@@ -97,7 +143,8 @@ mod_grapher_teams_server <- function(id, con, league_palette) {
             "Matches: ", n
           )
         )
-      plot_team_calibration(calib_bins, color_map = team_color_map())
+      plot_team_calibration(calib_bins, color_map = team_color_map()) |>
+        plotly::config(modeBarButtonsToAdd = list("drawopenpath", "eraseshape"))
     })
     
     output$team_performance_plot <- plotly::renderPlotly({
@@ -111,7 +158,8 @@ mod_grapher_teams_server <- function(id, con, league_palette) {
         dplyr::mutate(tooltip_text = paste0(team, "\n", "Date: ", format(starts, "%Y-%m-%d"), "\n", "Cumulative: ", round(cum_residual, 2)))
       validate(need(nrow(perf_df) > 0, "Not enough data for performance plot."))
       residual_sd <- stats::sd(perf_df$residual, na.rm = TRUE)
-      plot_team_performance(perf_df, residual_sd = residual_sd, color_map = team_color_map())
+      plot_team_performance(perf_df, residual_sd = residual_sd, color_map = team_color_map()) |>
+        plotly::config(modeBarButtonsToAdd = list("drawopenpath", "eraseshape"))
     })
   })
 }
