@@ -2,6 +2,10 @@
 
 # Establish a Postgres connection using environment variables
 connect_db <- function() {
+  required <- c("PGHOST", "PGDATABASE", "PGUSER", "PGPASSWORD")
+  missing <- required[!nzchar(Sys.getenv(required))]
+  if (length(missing)) stop("Missing required DB env vars: ", paste(missing, collapse = ", "))
+  
   DBI::dbConnect(
     RPostgres::Postgres(),
     host = Sys.getenv("PGHOST"),
