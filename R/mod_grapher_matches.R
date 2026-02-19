@@ -24,13 +24,12 @@ mod_grapher_matches_ui <- function(id) {
 }
 
 # Server
-# - con: DBI connection provided by parent
 # - ready: reactive logical to gate plotting (e.g., require leagues selected)
 # - external_ids: reactive vector of event_ids from manual selection to combine (intersection)
-mod_grapher_matches_server <- function(id, con, ready = reactive(TRUE), external_ids = reactive(NULL)) {
+mod_grapher_matches_server <- function(id, ready = reactive(TRUE), external_ids = reactive(NULL)) {
   moduleServer(id, function(input, output, session) {
-    results <- dplyr::tbl(con, "results1")
-    odds    <- dplyr::tbl(con, "odds1x2")
+    results <- req(get("DATA", envir = .GlobalEnv)$results1)
+    odds    <- req(get("DATA", envir = .GlobalEnv)$odds1x2)
     
     observeEvent(input$help_matches, {
       showModal(modalDialog(
@@ -51,7 +50,6 @@ mod_grapher_matches_server <- function(id, con, ready = reactive(TRUE), external
       results |>
         dplyr::distinct(league_name) |>
         dplyr::arrange(league_name) |>
-        dplyr::collect() |>
         dplyr::pull(league_name)
     })
     
@@ -69,7 +67,6 @@ mod_grapher_matches_server <- function(id, con, ready = reactive(TRUE), external
         tbl <- tbl |> dplyr::filter(.data$league_name %in% lf)
       }
       tbl |>
-        dplyr::collect() |>
         dplyr::mutate(Match_Date = format(as.Date(starts), "%Y-%m-%d")) |>
         dplyr::select(event_id, home_team, away_team, league_name, Match_Date)
     })
@@ -116,8 +113,7 @@ mod_grapher_matches_server <- function(id, con, ready = reactive(TRUE), external
       on.exit(shiny::removeNotification(id), add = TRUE)
       all_odds <- odds |>
         dplyr::filter(event_id %in% !!ids) |>
-        dplyr::select(logged_time, home_odds, draw_odds, away_odds, max_money_line, event_id) |>
-        dplyr::collect()
+        dplyr::select(logged_time, home_odds, draw_odds, away_odds, max_money_line, event_id)
       
       if (nrow(all_odds) == 0) return(dplyr::tibble())
       

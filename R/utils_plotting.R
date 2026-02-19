@@ -1,5 +1,4 @@
-# Plotting helpers (pure; no Shiny dependencies). Some helpers accept a DB connection
-# to retrieve metadata (e.g., leagues) using DBI safely when available.
+# Plotting helpers (pure; no Shiny dependencies).
 
 # Deterministic color utilities -------------------------------------------------
 
@@ -25,27 +24,16 @@ deterministic_palette <- function(keys) {
   stats::setNames(cols, u)
 }
 
-# Build named vector of league colors using DB colors when available.
-# Falls back to distinct leagues from results1 if a dedicated leagues table is absent.
-get_league_colors <- function(db_con, prefer_db_colors = TRUE, key = c("league_id", "league_name")) {
-  # Simple behavior: assign each league a color from base R Set 1, in order.
-  # We ignore DB-provided colors and the key argument for simplicity.
-  if (is.null(db_con)) {
+# Build named vector of league colors using local data (CSV-loaded)
+# - data_results: optional data frame with `league_name` column; defaults to DATA$results1
+get_league_colors <- function(data_results = NULL) {
+  if (is.null(data_results)) {
+    data_results <- tryCatch(get("DATA", envir = .GlobalEnv)$results1, error = function(e) NULL)
+  }
+  if (is.null(data_results) || !"league_name" %in% names(data_results)) {
     return(stats::setNames(character(0), character(0)))
   }
-  
-  leagues <- tryCatch({
-    DBI::dbGetQuery(
-      db_con,
-      "SELECT DISTINCT league_name FROM results1 WHERE league_name IS NOT NULL ORDER BY league_name"
-    )
-  }, error = function(e) NULL)
-  
-  if (is.null(leagues) || nrow(leagues) == 0) {
-    return(stats::setNames(character(0), character(0)))
-  }
-  
-  lg <- as.character(leagues$league_name)
+  lg <- sort(unique(as.character(data_results$league_name)))
   n <- length(lg)
   pal <- set1_palette(max(n, 1))
   cols <- if (n <= length(pal)) pal[seq_len(n)] else rep(pal, length.out = n)

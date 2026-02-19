@@ -6,7 +6,6 @@ mod_grapher_overview_ui <- function(id) {
   tagList(
     h1("OVERVIEW"),
     h2("Displaying data from odds markets on:"),
-    uiOutput(ns("db_status_indicator")),
     h3(textOutput(ns("overview_text"))),
     hr(),
     fluidRow(
@@ -25,25 +24,24 @@ mod_grapher_overview_ui <- function(id) {
 }
 
 # Server
-# - con: DBI connection provided by parent
 # - league_palette: reactive() provided by parent returning named vector of colors
-mod_grapher_overview_server <- function(id, con, league_palette) {
+mod_grapher_overview_server <- function(id, league_palette) {
   moduleServer(id, function(input, output, session) {
-    # Lazily reference results table
-    results <- dplyr::tbl(con, "results1")
+    # Local in-memory data
+    results <- req(get("DATA", envir = .GlobalEnv)$results1)
+    odds    <- req(get("DATA", envir = .GlobalEnv)$odds1x2)
     
-    # Compute counts for header text (collect) with persistent notification
+    # Compute counts for header text
     {
-      id <- shiny::showNotification("Loading overview metrics from database...", duration = NULL, type = "message")
+      id <- shiny::showNotification("Loading overview metrics...", duration = NULL, type = "message")
       on.exit(shiny::removeNotification(id), add = TRUE)
       summary_stats <- results |>
         dplyr::summarise(
           unique_events = dplyr::n_distinct(event_id),
           unique_teams = dplyr::n_distinct(home_team),
-          unique_leagues = dplyr::n_distinct(league_id)
-        ) |>
-        dplyr::collect()
-      n_observations <- dplyr::tbl(con, "odds1x2") |> dplyr::tally() |> dplyr::pull(n)
+          unique_leagues = dplyr::n_distinct(league_name)
+        )
+      n_observations <- odds |> dplyr::tally() |> dplyr::pull(n)
     }
     
     output$overview_text <- renderText({
@@ -54,24 +52,12 @@ mod_grapher_overview_server <- function(id, con, league_palette) {
             "different teams, across", leagues, "different leagues")
     })
     
-    # Expose the parent DB status UI through this child
-    output$db_status_indicator <- renderUI({
-      # The parent already renders a status indicator; it can also pass a reactive boolean instead
-      # For simplicity, we re-render a tiny green indicator to match original UI
-      tags$div(
-        style = "margin-top: 10px; margin-bottom: 10px;",
-        tags$span(style = "color: #28a745; font-size: 18px; vertical-align: middle;", "●"),
-        tags$span(style = "margin-left: 5px; vertical-align: middle; font-weight: bold;", "Connected")
-      )
-    })
-    
     # Minimal results data for overview plots
     overview_results_data <- reactive({
       id <- shiny::showNotification("Loading overview data...", duration = NULL, type = "message")
       on.exit(shiny::removeNotification(id), add = TRUE)
       results |>
         dplyr::select(event_id, league_name, starts) |>
-        dplyr::collect() |>
         dplyr::mutate(starts = as.POSIXct(starts, tz = "UTC"))
     })
     

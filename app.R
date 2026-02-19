@@ -7,7 +7,6 @@
 
 source("global.R")
 # Source utilities
-source("R/utils_db.R")
 source("R/utils_odds.R")
 source("R/utils_plotting.R")
 # Source modules

@@ -13,19 +13,18 @@ mod_grapher_leagues_ui <- function(id) {
         icon = icon("question-circle"),
         style = "font-size: 16px; color: #e67e22; background: transparent; border: none;",
         title = "Show help for entropy plot"
-        )
-      ),
+      )
+    ),
     plotlyOutput(ns("league_entropy_plot"))
   )
 }
 
 # Server
-# - con: DBI connection
 # - league_palette: reactive() with named color vector
-mod_grapher_leagues_server <- function(id, con, league_palette) {
+mod_grapher_leagues_server <- function(id, league_palette) {
   moduleServer(id, function(input, output, session) {
-    results <- dplyr::tbl(con, "results1")
-    entropy <- dplyr::tbl(con, "entropy")
+    results <- req(get("DATA", envir = .GlobalEnv)$results1)
+    entropy <- req(get("DATA", envir = .GlobalEnv)$entropy)
     
     observeEvent(input$help_entropy, {
       showModal(modalDialog(
@@ -49,7 +48,6 @@ mod_grapher_leagues_server <- function(id, con, league_palette) {
           results |> dplyr::select(event_id, league_name, starts, home_team, away_team, result),
           by = "event_id"
         ) |>
-        dplyr::collect() |>
         dplyr::mutate(
           starts = as.POSIXct(starts, tz = "UTC"),
           tooltip_text = paste0(

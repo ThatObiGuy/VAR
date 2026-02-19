@@ -33,13 +33,12 @@ mod_grapher_teams_ui <- function(id) {
 }
 
 # Server
-# - con: DBI connection provided by parent
 # - league_palette: reactive() with named color vector
-mod_grapher_teams_server <- function(id, con, league_palette) {
+mod_grapher_teams_server <- function(id, league_palette) {
   moduleServer(id, function(input, output, session) {
-    results <- dplyr::tbl(con, "results1")
-    odds    <- dplyr::tbl(con, "odds1x2")
-    entropy <- dplyr::tbl(con, "entropy")
+    results <- req(get("DATA", envir = .GlobalEnv)$results1)
+    odds    <- req(get("DATA", envir = .GlobalEnv)$odds1x2)
+    entropy <- req(get("DATA", envir = .GlobalEnv)$entropy)
     
     observeEvent(input$help_calib, {
       showModal(modalDialog(
@@ -76,7 +75,6 @@ mod_grapher_teams_server <- function(id, con, league_palette) {
           dplyr::select(event_id, league_name, starts, home_team, away_team) |>
           dplyr::inner_join(results |> dplyr::select(event_id, result), by = "event_id") |>
           dplyr::inner_join(entropy |> dplyr::select(event_id, p_home, p_draw, p_away), by = "event_id") |>
-          dplyr::collect() |>
           dplyr::mutate(starts = as.POSIXct(starts, tz = "UTC"))
       })
     })

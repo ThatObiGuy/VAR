@@ -1,17 +1,16 @@
-# Odds-related DB helpers
+# Odds-related helpers (CSV/in-memory)
 
-# Fetch odds time series for a single event
-# - Keeps DB work lazy until collect()
+# Fetch odds time series for a single event from local DATA
 # - Returns a tibble with plottable logged_time (POSIXct)
-get_event_odds <- function(con, event_id) {
-  stopifnot(!missing(con), !missing(event_id))
-  odds <- dplyr::tbl(con, "odds1x2")
+get_event_odds <- function(event_id) {
+  stopifnot(!missing(event_id))
+  odds <- tryCatch(get("DATA", envir = .GlobalEnv)$odds1x2, error = function(e) NULL)
+  if (is.null(odds)) return(tibble::tibble())
   odds |>
     dplyr::filter(event_id == !!event_id) |>
     dplyr::select(
       logged_time, home_odds, draw_odds, away_odds, max_money_line
     ) |>
-    dplyr::collect() |>
     dplyr::mutate(
       # ensure time column is plottable
       logged_time = as.POSIXct(logged_time, tz = "UTC")
