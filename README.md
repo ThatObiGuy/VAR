@@ -57,6 +57,8 @@ Developing this in parallel with other commitments, I found it helpful to be abl
 If you’re somehow not already aware, please check out the host of this great competition: the [Maynooth Data Science Society](https://mulife.ie/society/data-science).
 
 
-## Thank you
+## Thank you(s)
 Thanks for checking this out!  
+Thanks to the wonderful Gwenaelle Mathieu for drawing out the help graphics for me.  
+Thanks also to all the brilliant people that gave feedback throughout the development process. (even if some of it has yet to be implemented...)  
 If you’re interested, I intend to develop this app further outside of the main branch, which will remain as is until the end of the competition.

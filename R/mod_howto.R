@@ -100,7 +100,7 @@ mod_howto_ui <- function(id) {
       style = "text-align: center;",
       tags$iframe(
         width = "560", height = "315",
-        src = "https://www.youtube.com/embed/Xh-JgMK3Pdk?si=-8WWavZbodaCgWIe",
+        src = "https://www.youtube.com/embed/bhPM6Bgb50I?si=SELWvHoGNpwK1gRw",
         frameborder = "0",
         allow = "accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture",
         allowfullscreen = NA
